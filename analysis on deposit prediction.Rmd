@@ -1,16 +1,57 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Will a Customer Open a Bank Account?"
+output:
+  html_document: 
+    fig_width: 5
+  html_notebook: default
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+Below UCI dataset is a "Bank Marketing" campaign that contains records of calls made by a Portugese bank to its clients, including client and campaign attributes. Analysis is based on classfication methods to understand if a customer is going to open a deposit account or not.
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+### Data Cleaning and Preparation
+Load all relevant libraries.
 
-```{r}
-plot(cars)
+```{r, echo=TRUE, fig.height=5, fig.width=5, message=FALSE, warning=FALSE}
+library(readr)
+library(ggplot2)
+library(lattice)
+library(plyr)
+library(dplyr)
+library(caret)
+library(mlbench)
+library(foreign)
+library(ggplot2)
+library(reshape)
+library(scales)
+library(e1071)
+library(MASS)
+library(klaR)
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
+Read the data set on bank clients. Here, analysis is based on the smaller dataset that represents randomly selected 10% of the entire dataset, so that computationally demanding algorithms (eg: SVM) can be performed faster.
+
+```{r, message=FALSE, warning=FALSE}
+bank <- read("~/Documents/homework/ITM_6285/bank-additional.csv",";",escape_double = FALSE, trim_ws = TRUE)
+bank <- subset(bank, select = -c(duration))
+```
+Since duration has a high correlation with the target variable, duration is removed from the dataset. 
+Here is a breakdown of all variables in the dataset along with variable type.
+The target variable is y which has two values: 'yes' (customer opens a bank account) and 'no' (customer does not open an account).
+```{r}
+sapply(bank,class)
+```
+
+To get an understanding of the data, lets visualize a few variables.
+```{r, warning=FALSE}
+table(bank$y)
+```
+The dataset contains 3668 'no' responses and 451 'yes' responses.
+Below is the distribution by occupation and age.
+```{r, fig.height=3, fig.width=6}
+barplot(table(bank$job),col="red",ylab="No. of Clients",las=2,main="Job",cex.names = 0.8,cex.axis = 0.8)
+```
+```{r, fig.height=5, fig.width=6}
+boxplot(bank$age~bank$y, main=" Age",ylab="age of clients",xlab="Deposit A/C Open or Not")
+```
+
