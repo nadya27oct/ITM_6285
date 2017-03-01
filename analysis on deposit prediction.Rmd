@@ -1,9 +1,10 @@
 ---
 title: "Will a Customer Open a Bank Account?"
 output:
-  html_document: 
-    fig_width: 5
   html_notebook: default
+  html_document:
+    fig_width: 5
+  pdf_document: default
 ---
 
 Below UCI dataset is a "Bank Marketing" campaign that contains records of calls made by a Portugese bank to its clients, including client and campaign attributes. Analysis is based on classfication methods to understand if a customer is going to open a deposit account or not.
@@ -26,17 +27,19 @@ library(scales)
 library(e1071)
 library(MASS)
 library(klaR)
+library(C50)
+library(kernlab)
 ```
 
 
 Read the data set on bank clients. Here, analysis is based on the smaller dataset that represents randomly selected 10% of the entire dataset, so that computationally demanding algorithms (eg: SVM) can be performed faster.
 
 ```{r, message=FALSE, warning=FALSE}
-bank <- read("~/Documents/homework/ITM_6285/bank-additional.csv",";",escape_double = FALSE, trim_ws = TRUE)
+bank <- read_delim("~/Documents/homework/ITM_6285/bank-additional.csv",";",escape_double = FALSE, trim_ws = TRUE)
 bank <- subset(bank, select = -c(duration))
 ```
-Since duration has a high correlation with the target variable, duration is removed from the dataset. 
-Here is a breakdown of all variables in the dataset along with variable type.
+There are 20 attributes in the dataset. Since duration has a high correlation with the target variable, variable named 'duration' is removed from the dataset. 
+Here is a breakdown of all 20 variables in the dataset along with variable data type.
 The target variable is y which has two values: 'yes' (customer opens a bank account) and 'no' (customer does not open an account).
 ```{r}
 sapply(bank,class)
@@ -51,7 +54,107 @@ Below is the distribution by occupation and age.
 ```{r, fig.height=3, fig.width=6}
 barplot(table(bank$job),col="red",ylab="No. of Clients",las=2,main="Job",cex.names = 0.8,cex.axis = 0.8)
 ```
-```{r, fig.height=5, fig.width=6}
-boxplot(bank$age~bank$y, main=" Age",ylab="age of clients",xlab="Deposit A/C Open or Not")
+```{r, fig.height=3, fig.width=5}
+boxplot(bank$age~bank$y, main=" Age",ylab="Age of Clients",xlab="Deposit A/C Open or Not")
 ```
+
+### Splitting Data for Testing and Training
+
+Now the dataset of 4119 observations are splitted into training and test data. 
+We use stratified sampling to split the data, so that distribution of the outcome within traning and testing datasets is preserved. We split the data with 75% (or 3090) of observations is used for training the model and 25% (or 1029) of observations is used to test the prediction outcome from the classifier model.
+```{r}
+set.seed(123456)
+TrainingDataIndex <- createDataPartition(bank$y, p=0.75, list = FALSE)
+train <- bank[TrainingDataIndex,]
+test <-bank[-TrainingDataIndex,]
+prop.table(table(train$y))
+nrow(train)
+prop.table(table(test$y))
+nrow(test)
+```
+
+Thus, stratified sampling has enabled to maintain the distribution with about 89% of clients have responded 'no' to opening a deposit in both testing and training data set.
+
+### 1. Decision Tree
+#### Training the Model
+After partitioning the data to train and test, use a 10 fold cross validation repeated 5 times to evaluate the model.
+
+```{r}
+TrainingParameters <- trainControl(method = "cv", number = 10, repeats = 5)
+```
+Then create the decision tree using the C5.0 algorithm.
+
+```{r}
+DecTreeModel <- train(y ~ ., data = train, 
+                      method = "C5.0",
+                      trControl= TrainingParameters,
+                      na.action = na.omit)
+```
+
+Lets take a look.
+```{r}
+DecTreeModel
+```
+
+```{r}
+summary(DecTreeModel)
+```
+For instance, Rule 1 shows that when the number of employees in a quarter is greater than 5023, it was assigned the class 'no' (client does not want to open a bank account) 2816 times and out of 2816 times, the model incorrectly assigned 'no' 207 times.
+
+Based on the training data confusion matrix, 9.5% of observations were assigned an incorrect class variable.
+
+#### Testing the Model
+
+```{r}
+DTPredictions <-predict(DecTreeModel, test, na.action = na.pass)
+confusionMatrix(DTPredictions, test$y)
+```
+Based on confusion matrix for test data, using the decision tree model we have correctly classified 911 + 15 = 926 observations and misclassified 6 + 97 = 103 representing a 90% accuracy.
+
+### 2. Naive Bayes
+#### Training the Model
+
+The next machine learning method used to predict if a customer opens a bank account is Naive Bayes method.
+
+```{r, message=FALSE, warning=FALSE}
+set.seed(12345)
+TrainingDataIndex <- createDataPartition(bank$y, p=0.75, list = FALSE)
+train <- bank[TrainingDataIndex,]
+test <-bank[-TrainingDataIndex,]
+NBModel <- train(train[,-20], train$y, method = "nb",trControl= trainControl(method = "cv", number = 10, repeats = 5))
+NBModel
+```
+
+#### Testing the model
+
+Below confusion matrix by class y shows that there is 89% accuracy in classification per Naive Bayes method.
+```{r, message=FALSE, warning=FALSE}
+NBPredictions <-predict(NBModel, test)
+confusionMatrix(NBPredictions, test$y)
+```
+
+### 3. Suppor Vector Machines
+SVM is another classification method that can be used to predict if a client falls into either 'yes' or 'no' class.
+
+#### Training the model
+As before, create a prediction model using svmPoly method.
+```{r}
+set.seed(12345)
+TrainingDataIndex <- createDataPartition(bank$y, p=0.75, list = FALSE)
+train <- bank[TrainingDataIndex,]
+test <-bank[-TrainingDataIndex,]
+svm_model <- train(y~., data = train,
+                   method = "svmPoly",
+                   trControl= trainControl(method = "cv", number = 10, repeats = 5),
+                   tuneGrid = data.frame(degree = 1,scale = 1,C = 1))
+svm_model
+```
+
+#### Testing the model
+```{r, message=FALSE, warning=FALSE}
+#SVMPredictions <-predict(svm_model, test, na.action = na.pass)
+#cmSVM <-confusionMatrix(SVMPredictions, test)
+```
+
+
 
