@@ -96,7 +96,7 @@ plot(kohsom, type="code", labels = rownames(ScaledProdData))
 
 ```
 
-### 4) HeatMap with Hierarchical Cluster
+### 4) HeatMaps of Products
 
 Below is a heatmap combined with a dendogram to visualize the hierarchical structure of clusters organized in a heatmap. Cells colored in yellow and light green show a very high value of a nutrition. For instance, Grape Nut cereal has a high value of insoluble fiber. Vanilla Soy Milk and Sweetened Soy Milk has low levels of vitamin pp and vitamin b1 serving, so these two items are clustered together. Similarly, Tootie Fruities and Lucky Charms, two colored cereals, are in the same cluster and they contain the same amount of zinc serving.
 
@@ -104,8 +104,10 @@ Below is a heatmap combined with a dendogram to visualize the hierarchical struc
 heatmaply(ScaledProdData, k_col = 2, k_row = 3) %>% layout(margin = list(l = 140, b = 140))
 ```
 
-Below plot displays the multi-dimensional food dataset with a heatmap without the dendrogram.
-Here we can observe that 
+Below plot displays the multi-dimensional food dataset using a heatmap without the dendrogram.
+Here we can observe some anomalies through the light colored cells. There is a high vitamin b12 and b6 in Special K Original. Vanilla Soy Milk contains high caffeine levels. 
+Grape nuts cereal and Frosted Shredded Wheats contain the same level of iron serving displayed by the same color cells for both products in iron.
+In the dendrogram above, Rice Chex and Chocolate Chex are in the same cluster. However, in the below heatmap, these two items are distant from each other.
 
 ```{r, fig.height=7, fig.width=7}
 product_heatmap <- heatmap(ScaledProdData, Rowv=NA, Colv=NA, col = heat.colors(256), scale="column", margins=c(10,10))
