@@ -1,7 +1,9 @@
 ---
 title: "Product Clusters Based on Nutritional Content"
-author: Imali Nadya Wanigasundara
-output: html_notebook
+author: "Imali Nadya Wanigasundara"
+output:
+  html_notebook: default
+  pdf_document: default
 ---
 
 This document uses various clustering methods to categorize food clusters based on nutritional content. 
@@ -94,6 +96,21 @@ plot(kohsom, type="code", labels = rownames(ScaledProdData))
 
 ```
 
+### 4) HeatMap with Hierarchical Cluster
+
+Below is a heatmap combined with a dendogram to visualize the hierarchical structure of clusters organized in a heatmap. Cells colored in yellow and light green show a very high value of a nutrition. For instance, Grape Nut cereal has a high value of insoluble fiber. Vanilla Soy Milk and Sweetened Soy Milk has low levels of vitamin pp and vitamin b1 serving, so these two items are clustered together. Similarly, Tootie Fruities and Lucky Charms, two colored cereals, are in the same cluster and they contain the same amount of zinc serving.
+
+```{r, fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
+heatmaply(ScaledProdData, k_col = 2, k_row = 3) %>% layout(margin = list(l = 140, b = 140))
+```
+
+Below plot displays the multi-dimensional food dataset with a heatmap without the dendrogram.
+Here we can observe that 
+
+```{r, fig.height=7, fig.width=7}
+product_heatmap <- heatmap(ScaledProdData, Rowv=NA, Colv=NA, col = heat.colors(256), scale="column", margins=c(10,10))
+```
+
 
 ####Appendix A
 
@@ -109,6 +126,7 @@ library(NbClust)
 library(kohonen)
 library(class)
 library(MASS)
+library(heatmaply)
 ```
 
 
