@@ -1,8 +1,13 @@
+#Load all relevant libraries
 library(readr)
 library(cluster)
 library(ggplot2)
 library(dendextend)
 library(dplyr)
+library(NbClust)
+library(kohonen)
+library(class)
+library(MASS)
 ProductData <- read.csv("~/Documents/homework/ITM_6285/products2.csv", na.strings = "undefined",
                       colClasses = c("character", "character", rep("numeric", 48)))
 #Note colClasses specifies the variable types - first 2 are character, the rest (48) are numberic
@@ -36,4 +41,38 @@ summary(CleanProductData)
 ScaledProdData <- scale(CleanProductData)
 ScaledProdData[is.na(ScaledProdData)] <- 0
 
-# Hierarchical
+# 1) Hierarchical clustering
+#create a distance matrix
+prodhieclusters <- agnes(ScaledProdData, method = "complete", metric = "euclidean")
+?agnes
+
+plot(prodhieclusters, which.plots=2, cex = 0.9)
+
+# 2) k-means clustering
+prodkclusters <- kmeans(ScaledProdData, 5, nstart = 25)
+plot(ScaledProdData[,c(2,3)],  col = prodkclusters$cluster)
+
+plot(prodkclusters$withinss)
+prodkclusters$withinss
+#shows the values within the centroids and each data point in a cluster summed. If clusters is 5,
+#then there will be 5 values
+
+NbClust(data = ScaledProdData, diss = NULL, distance = "euclidean", min.nc = 5, max.nc = 15, 
+        method = "kmeans", index = "all", alphaBeale = 0.1)
+
+NbClust(data = ScaledProdData, diss = NULL, distance = "euclidean", min.nc = 5, max.nc = 15, 
+        method = "kmeans", index = "silhouette", alphaBeale = 0.1)
+bestK <- NbClust(ScaledProdData, min.nc=5, max.nc=15, method="kmeans")
+
+
+# 3) Kohonen SOM
+kohsom <- som(data=ScaledProdData, grid = somgrid(5, 4, "hexagonal"))
+#Here the hexagon will have a matrix 5 * 4 = 20 nodes. The nodes with similar signatures are 
+#clustered together.
+
+# Plot map
+plot(kohsom, type="mapping", labels = rownames(ScaledProdData))
+
+# Look at codes
+plot(kohsom)
+#related weights of input
