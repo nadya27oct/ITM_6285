@@ -1,0 +1,79 @@
+---
+title: "Product Clusters Based on Nutritional Content"
+author: Imali Nadya Wanigasundara
+output: html_notebook
+---
+
+This document uses various clustering methods to categorize food clusters based on nutritional content. 
+The dataset on food products is taken from openfoodfacts.org.
+
+
+####Cleaning the Dataset
+
+First, read the data and specify variable characters as numeric and character. Here the first two columns, product ID and product names are characters while rest of the columns that contain nutritional contents is numeric.
+Then create a subset of data that contains rows with less than 25 undefined values and set the product name to be the rows of the new dataset, CleanPoductData.
+Finally scale the dataset so that clustering algorithm will weigh each variable evenly.
+
+```{r}
+# Read the data 
+ProductData <- read.csv("~/Documents/homework/ITM_6285/products2.csv", na.strings = "undefined",
+                      colClasses = c("character", "character", rep("numeric", 48)))
+# Delete the first column
+ProductData$prodid <-NULL
+# Selecting a subset with less than 25 undefined values
+ProdDataSubset <- ProductData[rowSums(is.na(ProductData))<25,]
+summary(ProdDataSubset)
+# Remove duplicates
+CleanProductData <- ProdDataSubset %>% distinct(prodname, .keep_all = TRUE)
+# Set undefined values to 0.
+CleanProductData[is.na(CleanProductData)] <- 0
+# Set productname as row names
+rownames(CleanProductData) <- CleanProductData[,1]
+CleanProductData$prodname <- NULL
+# Scale the data
+ScaledProdData <- scale(CleanProductData)
+ScaledProdData[is.na(ScaledProdData)] <- 0
+```
+
+*Note: Refer to appendix A for libraries used for clustering.*
+
+### 1) Hierarchical Clustering
+
+First, create a distance matrix based on Euclidean distance.
+This distance matrix is visually represented by the dendrogram below where the objects that are similar are closest to each other and objects that are different are furthest apart. 
+
+```{r, fig.height=11}
+prodhieclusters <- agnes(ScaledProdData, method = "complete", metric = "euclidean")
+plot(prodhieclusters, which.plots=2, cex = 1.0)
+```
+
+Based on the dendrogram, we can observe that similar products are clustered together. For instance, when we cut the tree at about height level 5, we can see that Fruit Loops, Special K Red Berries and Special K Protein are close relatives. Similarly, sliced almonds and lightly saled cashews share the same branch. It is also interesting to observe that apricot is closer to chocolate chip and macademia nut.
+
+
+### 2) K-Means Clustering
+
+The k-means clustering algorithm will 
+
+#####Appendix A
+
+Load all relevant libraries.
+
+```{r}
+library(readr)
+library(cluster)
+library(ggplot2)
+library(dendextend)
+library(dplyr)
+library(NbClust)
+library(kohonen)
+library(class)
+library(MASS)
+```
+
+Appendix B
+
+Here is the code that produce the above food clusters output.
+
+
+
+
