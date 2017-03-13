@@ -52,9 +52,50 @@ Based on the dendrogram, we can observe that similar products are clustered toge
 
 ### 2) K-Means Clustering
 
-The k-means clustering algorithm will 
+The k-means algorithm creates product clusters based on the best centroids for each group. Based on those centroids, the algorithm determine which products belong together based on their nutrients.
 
-#####Appendix A
+Assume we want to create 5 clusters. The k-means algorithm for 5 clusters shows that total distance within each centroid and each cluster for all 5 clusters is 793 while the total distance among 5 centroids is 803.
+```{r}
+prodkclusters <- kmeans(ScaledProdData, 5, nstart = 25)
+prodkclusters$withinss
+prodkclusters$tot.withinss
+prodkclusters$betweenss
+```
+
+Since the product dataset contains 48 variables, it is difficult to graphically represent the datasets in all clusters as plots are constrained to 2 dimensional graphs.
+
+Here we assume that k= 5 is the ideal number of clusters, however, since the dataset contains several variables, we may underestimate this number. The NBClust algorithm can be used here to determine the best number of clusters as below. Here we are using the silhouette statistic to compute the optimal clusters, specifying 5 as the minimum number and 15 to be the maximum clusters.
+
+Per NbClust algorithm, maximum clusters is identified to be 7.
+
+```{r}
+bestK<- NbClust(data = ScaledProdData, diss = NULL, distance = "euclidean", min.nc = 5, 
+                max.nc = 15, method = "kmeans", index = "silhouette", alphaBeale = 0.1)
+bestK$Best.nc
+```
+
+### 3) Kohonen SOM (Self Organizing Maps)
+
+Kohonen SOM use nodes vectors to represent clusters. The som algorithm can be visually represented using som map function as below. We specify the map to contain a 5 * 4 node matrix. Reducing the matrix size is likely to cluster products with dissimilarities together. 
+
+We can observe that Oat Bran and Nut Bran are closer to node with Grape Nuts Cereral and Frosted Flakes.
+
+```{r, fig.height=8, fig.width=10}
+kohsom <- som(data=ScaledProdData, grid = somgrid(5, 4, "hexagonal"))
+plot(kohsom, type="mapping", labels = rownames(ScaledProdData), cex=0.6)
+```
+
+Similarly, based on the visualization of weight vectors, we can observe that nodes with similar signatures are placed together.
+For instance, nodes on the left side of the plot contains several spikes while nodes on the bottom right side contains fairly stable signatures.
+
+
+```{r, fig.height=6}
+plot(kohsom, type="code", labels = rownames(ScaledProdData))
+
+```
+
+
+####Appendix A
 
 Load all relevant libraries.
 
@@ -70,9 +111,7 @@ library(class)
 library(MASS)
 ```
 
-Appendix B
 
-Here is the code that produce the above food clusters output.
 
 
 
