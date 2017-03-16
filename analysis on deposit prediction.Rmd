@@ -41,9 +41,6 @@ bank <- subset(bank, select = -c(duration))
 There are 20 attributes in the dataset. Since duration has a high correlation with the target variable, variable named 'duration' is removed from the dataset. 
 Here is a breakdown of all 20 variables in the dataset along with variable data type.
 The target variable is y which has two values: 'yes' (customer opens a bank account) and 'no' (customer does not open an account).
-```{r}
-sapply(bank,class)
-```
 
 To get an understanding of the data, lets visualize a few variables.
 ```{r, warning=FALSE}
@@ -75,8 +72,9 @@ nrow(test)
 
 Thus, stratified sampling has enabled to maintain the distribution with about 89% of clients have responded 'no' to opening a deposit in both testing and training data set.
 
-### 1. Decision Tree
-#### Training the Model
+### 1. Classification Methods
+#### a) Decision Tree
+##### Training the Model
 After partitioning the data to train and test, use a 10 fold cross validation repeated 5 times to evaluate the model.
 
 ```{r}
@@ -103,7 +101,7 @@ For instance, Rule 1 shows that when the number of employees in a quarter is gre
 
 Based on the training data confusion matrix, 9.5% of observations were assigned an incorrect class variable.
 
-#### Testing the Model
+##### Testing the Model
 
 ```{r}
 DTPredictions <-predict(DecTreeModel, test, na.action = na.pass)
@@ -111,13 +109,14 @@ confusionMatrix(DTPredictions, test$y)
 ```
 Based on confusion matrix for test data, using the decision tree model we have correctly classified 911 + 15 = 926 observations and misclassified 6 + 97 = 103 representing a 90% accuracy.
 
-### 2. Naive Bayes
-#### Training the Model
+#### b) Naive Bayes
+##### Training the Model
 
 The next machine learning method used to predict if a customer opens a bank account is Naive Bayes method.
+The Naive Bayes method assumes independece among each 19 variables, i.e. the algorithm assumes that attributes such as job and education are independent from each other in predicting whether a customer will open a bank account or not.
 
-```{r, message=FALSE, warning=FALSE}
-set.seed(12345)
+```{r, fig.height=5, fig.width=5, message=FALSE, warning=FALSE}
+set.seed(100)
 TrainingDataIndex <- createDataPartition(bank$y, p=0.75, list = FALSE)
 train <- bank[TrainingDataIndex,]
 test <-bank[-TrainingDataIndex,]
@@ -125,7 +124,9 @@ NBModel <- train(train[,-20], train$y, method = "nb",trControl= trainControl(met
 NBModel
 ```
 
-#### Testing the model
+After invoking the Naive Bayes method using training data set, lets feed test data to the model.
+
+##### Testing the model
 
 Below confusion matrix by class y shows that there is 89% accuracy in classification per Naive Bayes method.
 ```{r, message=FALSE, warning=FALSE}
@@ -133,13 +134,13 @@ NBPredictions <-predict(NBModel, test)
 confusionMatrix(NBPredictions, test$y)
 ```
 
-### 3. Suppor Vector Machines
+#### a) Suppor Vector Machines (SVM)
 SVM is another classification method that can be used to predict if a client falls into either 'yes' or 'no' class.
 
-#### Training the model
+##### Training the model
 As before, create a prediction model using svmPoly method.
-```{r}
-set.seed(12345)
+```{r, fig.height=4, fig.width=4, warning=FALSE}
+set.seed(120)
 TrainingDataIndex <- createDataPartition(bank$y, p=0.75, list = FALSE)
 train <- bank[TrainingDataIndex,]
 test <-bank[-TrainingDataIndex,]
@@ -149,12 +150,43 @@ svm_model <- train(y~., data = train,
                    tuneGrid = data.frame(degree = 1,scale = 1,C = 1))
 svm_model
 ```
-
-#### Testing the model
-```{r, message=FALSE, warning=FALSE}
-#SVMPredictions <-predict(svm_model, test, na.action = na.pass)
-#cmSVM <-confusionMatrix(SVMPredictions, test)
+ 
+After using polynomial kernal function to build a model, lets use test data to predict the accuracy of the model.
+ 
+##### Testing the model
+```{r, fig.height=4, fig.width=4, message=FALSE, warning=FALSE}
+SVMPredictions <-predict(svm_model, test, na.action = na.pass)
+confusionMatrix(SVMPredictions, test$y)
 ```
 
+As evident, the SVM classfication method gives a 89.6% accuracy predicting only 15 instances of false positives.
+
+#### c) Neural Network
+
+Neural netowrks attempt to mimic the learning pattern of natural biological neural network. Lets use a neural network method to understand a customer's decision to open a bank account.
+
+##### Training the model
+```{r, fig.height=4, fig.width=4, warning=FALSE}
+set.seed(80)
+TrainingDataIndex <- createDataPartition(bank$y, p=0.75, list = FALSE)
+train <- bank[TrainingDataIndex,]
+test <-bank[-TrainingDataIndex,]
+nnmodel <- train(train[,-20], train$y, method = "nnet",
+                 trControl= trainControl(method = "cv", number = 10, repeats = 5))
+nnmodel
+```
+
+After training the model using nnet method, use a confusion matrix to evaluate the performanc eof the model on test data.
+
+##### Testing the model
+
+```{r, fig.height=4, fig.width=4, warning=FALSE}
+nnetpredictions <-predict(nnmodel, test, na.action = na.pass)
+confusionMatrix(nnetpredictions, test$y)
+```
+
+Based on the confusion matrix, there are only 19 instances of false positives. The neural network has a 90.8% accuracy. 
+
+### 2. Recommendation of Models 
 
 
