@@ -29,6 +29,7 @@ library(MASS)
 library(klaR)
 library(C50)
 library(kernlab)
+library(nnet)
 ```
 
 
@@ -82,7 +83,7 @@ TrainingParameters <- trainControl(method = "cv", number = 10, repeats = 5)
 ```
 Then create the decision tree using the C5.0 algorithm.
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 DecTreeModel <- train(y ~ ., data = train, 
                       method = "C5.0",
                       trControl= TrainingParameters,
@@ -129,12 +130,13 @@ After invoking the Naive Bayes method using training data set, lets feed test da
 ##### Testing the model
 
 Below confusion matrix by class y shows that there is 89% accuracy in classification per Naive Bayes method.
+
 ```{r, message=FALSE, warning=FALSE}
 NBPredictions <-predict(NBModel, test)
 confusionMatrix(NBPredictions, test$y)
 ```
 
-#### a) Suppor Vector Machines (SVM)
+#### c) Suppor Vector Machines (SVM)
 SVM is another classification method that can be used to predict if a client falls into either 'yes' or 'no' class.
 
 ##### Training the model
@@ -154,6 +156,7 @@ svm_model
 After using polynomial kernal function to build a model, lets use test data to predict the accuracy of the model.
  
 ##### Testing the model
+
 ```{r, fig.height=4, fig.width=4, message=FALSE, warning=FALSE}
 SVMPredictions <-predict(svm_model, test, na.action = na.pass)
 confusionMatrix(SVMPredictions, test$y)
@@ -161,7 +164,7 @@ confusionMatrix(SVMPredictions, test$y)
 
 As evident, the SVM classfication method gives a 89.6% accuracy predicting only 15 instances of false positives.
 
-#### c) Neural Network
+#### d) Neural Network
 
 Neural netowrks attempt to mimic the learning pattern of natural biological neural network. Lets use a neural network method to understand a customer's decision to open a bank account.
 
@@ -187,6 +190,107 @@ confusionMatrix(nnetpredictions, test$y)
 
 Based on the confusion matrix, there are only 19 instances of false positives. The neural network has a 90.8% accuracy. 
 
-### 2. Recommendation of Models 
+### 2. Model Evaluation
 
+We created four models above to classify whether a cutomer would open a bank account or not. Lets build some key performance indicators to understand which model is the most successful in predicting the customer's decision.
+
+The typically used performance metrics are:
+
+a) precision: success rate in identifying whether a customer did not subscibe to the deposit account
+c) recall: proportion of clients correctly or incorrectly predicted to unsubscribe to an account
+
+
+The classification goal is to predict whether or not customers will subscribe to a term deposit. Here the positive class is 'no' or that a customer does not subscribe to a deposit. Thus, it is important to choose a model with a low _recall_, i.e. the model that should contain a lower proportion of true positives (customers that did not subscribe to the deposit) out of total actual positives. If the bank aggressively determines those customers that do not subscribe to the bank account, the bank will lose some customers. 
+
+In order to illustrate recall and precision for each model, lets compute the weighted F-measure. The R output of the Confusion Matrix of each model already calculates recall and precision indicated by _sensitivity_ and  _Pos Pred Value_ respectively.
+Thus, we can compute weighted F-measure (giving equal weights to reall and precision) as below. We collect _sensitivity_ and _Pos Pred Value_ from confusion matrix to compute F-measure for each model.
+
+```{r}
+model = c("dec","nb","svm","nn")
+recall = c(0.9935,0.9466,0.9836,0.9793)
+precision = c(0.9038,0.9175,0.9074,0.9220)
+fmeasure <- 2 * precision * recall / (precision + recall)
+eval_table = data.frame(model,recall,precision,fmeasure) 
+eval_table
+```
+
+Based on the above table, Naive Bayes method is the recommended classification method as it contains lowest recall. We do not want a model that aggressively classifies a customer response as 'no', we want more customers to open a bank account.
+
+### 3. Effect of PCA on Classification Performance
+
+Since the bank dataset on telephone calls contains multiple variables, we can perform a principal component analysis (PCA), a dimensionality reduction technique, to reduce some of the variables with less variance, such that we can improve the model performances by focusing only on those attributes with relatively high variance.
+
+As before, we will partition the data to test and training and perform each classification method to predict whether or not a customer will open a bank account. The pca function in _caret_ package in R is used to perform dimensionality reduction which will exclude all categorical variables in the bank dataset.
+
+```{r}
+TrainingDataIndex <- createDataPartition(bank$y, p=0.75, list = FALSE)
+trainingData <- bank[TrainingDataIndex,]
+testData <- bank[-TrainingDataIndex,]
+```
+
+##### Decision Tree 
+
+The decision tree model uses PCA to predict the class variable with an accuracy of 89.3%. This is slightly lower than the accuracy produced without performing dimensionalty reduction (89.9%). However, this model __DecTreeModel2__ contains a higher precision, 91.3% compared to 90.4% of __DTPredictions__.
+
+
+```{r, message=FALSE, warning=FALSE}
+set.seed(30)
+DecTreeModel2 <- train(trainingData[,-20], trainingData$y, 
+                       method = "C5.0",
+                       trControl= trainControl(method = "cv", number = 10),
+                       preProcess = c("pca"),
+                       na.action = na.omit)
+DTPredictions2 <-predict(DecTreeModel, testData, na.action = na.pass)
+confusionMatrix(DTPredictions2, testData$y)
+```
+
+##### Naive Bayes
+
+With PCA, naive bayes method produces a higher accuracy of 88.6% compared to the accuracy produced with PCA, 87.7%, thus this model predict a higher true negative rate (customers identified as opening a bank account) compared to the model without PCA. This model produces the same recall in comparison to the naive bayes model without PCA. The specificity is significantly higher than that from without PCA (39% versus 30%). Specificity is instances of true negative (44) as a proportion of true negative and false positive (44 + 68). In the banking campaigns, we want to minimize false positives, i.e. identifying class variable as 'no' when a customer actually wants to a bank account.
+
+```{r, message=FALSE, warning=FALSE}
+set.seed(20)
+NBModel2 <- train(trainingData[,-20], trainingData$y, 
+                       method = "nb",
+                       trControl= trainControl(method = "cv", number = 10),
+                       preProcess = c("pca"),
+                       na.action = na.omit)
+NBPredictions2 <-predict(NBModel2, testData, na.action = na.pass)
+confusionMatrix(NBPredictions2, testData$y)
+```
+
+##### Support Vector Machine
+
+When using PCA with SVM polynomial model, the accuracy improved from 89.6% to 90.3%. However, the model using PCA produced higher false positives (the model predicted a 'no' when a customer subscibed to an account) and thus SVM using PCA produced a higher precision, 91.1% versus 90.7%.  
+
+```{r, message=FALSE, warning=FALSE}
+set.seed(40)
+SVModel2 <- train(y ~ ., data = trainingData,
+                 method = "svmPoly",
+                 preProcess = c("pca"),
+                 trControl= trainControl(method = "cv", number = 10),
+                 tuneGrid = data.frame(degree = 1,
+                                       scale = 1,
+                                       C = 1))
+SVpredictions2 <-predict(SVModel2, testData, na.action = na.pass)
+confusionMatrix(SVpredictions2, testData$y)
+```
+
+
+##### Neural Networks
+
+When using PCA for neural network, the model produces a significantly lower accuracy 86% compared with 91% from neural network model without PCA. However, this model with PCA contains lower number of false positives and as such neural network classification with PCA is recommended over the neural network without PCA.
+```{r, message=FALSE, warning=FALSE}
+set.seed(30)
+NNModel2 <- train(trainingData[,-20], trainingData$y,
+                method = "nnet",
+                preProcess = c("pca"),
+                trControl= trainControl(method = "cv", number = 10),
+                tuneGrid = data.frame(size = 5,
+                decay = 0))
+```
+```{r}
+NNpredictions2 <-predict(NNModel2, testData, na.action = na.pass)
+confusionMatrix(NNpredictions2, testData$y)
+```
 
