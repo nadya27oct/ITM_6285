@@ -116,7 +116,7 @@ Based on confusion matrix for test data, using the decision tree model we have c
 The next machine learning method used to predict if a customer opens a bank account is Naive Bayes method.
 The Naive Bayes method assumes independece among each 19 variables, i.e. the algorithm assumes that attributes such as job and education are independent from each other in predicting whether a customer will open a bank account or not.
 
-```{r, fig.height=5, fig.width=5, message=FALSE, warning=FALSE}
+```{r, fig.height=5, fig.width=5, message=FALSE, warning=FALSE, results="hide"}
 set.seed(100)
 TrainingDataIndex <- createDataPartition(bank$y, p=0.75, list = FALSE)
 train <- bank[TrainingDataIndex,]
@@ -169,7 +169,7 @@ As evident, the SVM classfication method gives a 89.6% accuracy predicting only 
 Neural netowrks attempt to mimic the learning pattern of natural biological neural network. Lets use a neural network method to understand a customer's decision to open a bank account.
 
 ##### Training the model
-```{r, fig.height=4, fig.width=4, warning=FALSE}
+```{r, fig.height=4, fig.width=4, warning=FALSE, eval=FALSE}
 set.seed(80)
 TrainingDataIndex <- createDataPartition(bank$y, p=0.75, list = FALSE)
 train <- bank[TrainingDataIndex,]
@@ -248,13 +248,16 @@ confusionMatrix(DTPredictions2, testData$y)
 
 With PCA, naive bayes method produces a higher accuracy of 88.6% compared to the accuracy produced with PCA, 87.7%, thus this model predict a higher true negative rate (customers identified as opening a bank account) compared to the model without PCA. This model produces the same recall in comparison to the naive bayes model without PCA. The specificity is significantly higher than that from without PCA (39% versus 30%). Specificity is instances of true negative (44) as a proportion of true negative and false positive (44 + 68). In the banking campaigns, we want to minimize false positives, i.e. identifying class variable as 'no' when a customer actually wants to a bank account.
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, results="hide"}
 set.seed(20)
 NBModel2 <- train(trainingData[,-20], trainingData$y, 
                        method = "nb",
                        trControl= trainControl(method = "cv", number = 10),
                        preProcess = c("pca"),
                        na.action = na.omit)
+```
+
+```{r, message=FALSE, warning=FALSE}
 NBPredictions2 <-predict(NBModel2, testData, na.action = na.pass)
 confusionMatrix(NBPredictions2, testData$y)
 ```
@@ -280,7 +283,7 @@ confusionMatrix(SVpredictions2, testData$y)
 ##### Neural Networks
 
 When using PCA for neural network, the model produces a significantly lower accuracy 86% compared with 91% from neural network model without PCA. However, this model with PCA contains lower number of false positives and as such neural network classification with PCA is recommended over the neural network without PCA.
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
 set.seed(30)
 NNModel2 <- train(trainingData[,-20], trainingData$y,
                 method = "nnet",
