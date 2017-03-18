@@ -1,0 +1,228 @@
+---
+title: "Predicting the Results of Republican Primaries"
+author: "Imali Nadya Wanigasundara"
+output: html_notebook
+---
+
+### 1. Introduction
+
+#### 1.1 Objective
+
+In the spirit of the past November elections, this paper will attempt to predict the outcome of Republican primaries based on the demographic features of each county. Various classfication methods are used to predict the winner of each county.
+
+#### 1.2 Data
+
+The data explored in this study is extracted from Kaggle 2016 US Presidential Election in Primary Results. There are two datasets: __primary results__ that contains votes by each county for each candidate and __county facts__ that contains demographic data such as percentage of senior citizens and bachelors degree holders and median household income per county. The analysis is only based on Republican candidates performances here. 
+
+#### 1.3 Related Works
+
+There was one related work in the Kaggle kernels by Alexandra Papiu.
+
+Papiu creates a data frame using only the results based on the Republican primaries to establish correlations and attempts to predict the winner of each county using Random Forest classification algorithm. His data cleaning methods have been adopted in this analysis as the original datasets contained several attributes. 
+
+***
+### 2. Data Exploration
+
+Load all relevant libraries.
+
+```{r, message=FALSE, warning=FALSE}
+# load libraries
+library(readr)
+library(magrittr)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(C50)
+library(klaR)
+library(MASS)
+library(e1071)
+library(nnet)
+```
+
+After loading the 2 datasets, a new dataframe is created by filtering for only Republican votes and creating a new data frame where the winner of each county is defined as the candidate with the maximum percentage of votes. 
+Then, another dataset is extracted from county demogrpahics, leaving variables such as percentage of non-native English speakers and retail sales per capita. In this dataset, we have only included demographc attributes such as percent of white population, population density, poverty rate and percent of veterans per county. 
+Finally, the two datasets, primary results and county facts, are joined based on county name and state.  
+
+```{r, message=FALSE}
+# load 2 datasets
+county_facts <- read_csv("~/Downloads/county_facts.csv")
+primary_results <- read_csv("~/Downloads/primary_results.csv.zip")
+
+# winners as candidate with max vote percent from each county 
+votes <- primary_results %>%  
+            filter(party == "Republican") %>% 
+            group_by(state_abbreviation, county) %>% 
+            summarize(winner = candidate[which.max(fraction_votes)],
+                      frac_vote = max(fraction_votes),
+                      votes = max(votes))
+
+# extracting only relevant attributes for county
+county <- county_facts %<>%
+          select(state_abbreviation = state_abbreviation, county = area_name, 
+            income = INC110213, hispanic = RHI725214, white= RHI825214, 
+            college = EDU685213, density = POP060210, over65 = AGE775214,
+            female=SEX255214, poverty_level = PVY020213, veterans =VET605213) %>% 
+          mutate(county = gsub(" County", "", county))
+
+#join on state abb & county
+repubvotes <- inner_join(votes, county, by = c("state_abbreviation","county"))
+```
+
+
+There are only 2 counties which recorded a win for Ben Carson, so a new dataset is created excluding Ben Carson results.
+
+```{r, fig.height=4, fig.width=4}
+table(repubvotes$winner)
+repub_votes <- repubvotes %>%
+  filter(winner=="Donald Trump" | winner=="Ted Cruz" | winner=="Marco Rubio"| winner=="John Kasich")
+```
+
+Unfortunately it is important to note that as evident from the above values, the data is not uniformly distributed between 4 target variables.
+
+Lets explore some county attributes and the wining candidate's performances before we delve into some classfication methods.
+
+By visualizing the candidates performance by Income and Education, we can observe that Donald Trump and Ted Cruz seem to have won in counties with lowe percent of college educated persons earning lower medium income while Marco Rubio has outperformed all candidates in highly educated counties. 
+
+```{r, fig.height=4, fig.width=7, warning=TRUE}
+qplot(income,college, data = repub_votes, geom="point",
+      color = winner,
+      main = "Candidate Performance by Income and Education", xlab = "household median income", ylab = "college")
+```
+
+In the below boxplot, we can see that Donald Trump and Ted Cruz have done well in communites with few percentage of white population indicating these candidates ability to appeal to other ethnicities.
+
+```{r, fig.height=4, fig.width=5}
+qplot(winner, white, data=repub_votes, geom="boxplot", fill=winner, main="Candidate Performance by % of White Pop", xlab="candidate", ylab="% of white population")
+```
+
+When we plot candidate performance by age, once again we notice that Trump has a wider appeal than his rivals.
+
+```{r, fig.height=4, fig.width=5}
+qplot(winner, over65, data=repub_votes, geom="boxplot", fill=winner, main="Candidate Performance by Senior Citizens", xlab="candidate",ylab="% of people 65 or over")
+```
+
+***
+### 3. Classification Methods & Results
+
+First, we will remove state abbreviation and county from the dataset. The target variable (variable predicted) is _winner_ with 4 levels. There are 1945 occurences where Donald Trump became the winner followed by Ted Cruz winning in 596 counties.
+
+```{r}
+repub <- subset(repub_votes, select = -c(state_abbreviation,county))
+names(repub)
+repub$winner <- as.factor(repub$winner)
+summary(repub$winner)
+```
+
+We will use 4 classification methods to predict the winner of each county. 
+
+#### 3.1 Decision Tress
+
+Decision tree is built by repeatedly dividing data into groups based on demographic features. The attribute on which to divide is based on a statistical technique called, information gain, that determines which attribute split will divide the data in a clean manner. 
+
+We will use 5 fold cross validation to train the model. A training test is created that contains 75% (or 1972 records) of data from the _repub_ dataset. The remaning will data is used for testing the model results. 
+
+```{r, message=FALSE}
+# stratified sampling to create a data partition 
+set.seed(40)
+TrainingDataIndex <- createDataPartition(repub$winner, p=0.75, list = FALSE)
+train <- repub[TrainingDataIndex,]
+
+# 25% of data is used to train the model
+test <- repub[-TrainingDataIndex,]
+
+# decision tree built wit c5.0 algorithm
+DecTreeModel <- train(winner ~ ., data = train, 
+                      method = "C5.0",
+                      trControl= trainControl(method = "cv", number = 5),
+                      na.action = na.omit)
+```
+
+Lets see how well the model classified each county winner using test data.
+
+```{r}
+DTPredictions <-predict(DecTreeModel, test, na.action = na.pass)
+dt_cf <- confusionMatrix(DTPredictions, test$winner)
+dt_cf
+```
+
+The decision tree model classified class variable _winner_ with about 82% accuracy. In 57 counties, the model misclassified the winner as Donald Trump when Ted Cruz won those counties. The confusion matrix also shows that the model misclassified Ted Cruz as the winner in 35 instances when Donald Trump won those counties.
+Sensitivity is another important metric that measures the true positive rate, i.e. when a candidate actually wins a county, how well does model predict that same candidate won that county. Sensitivity for Donald Trump is highest and this could be because our class variables are not uniformly distributed.
+
+#### 3.2 Naive Bayes
+
+Naive Bayes method calculates probabilities given certain event occuring. This method assumes that predictor variables are independent from each other. For instance, the model assumes that median household income and poverty rate are independent from each other as a predictor of which candidate wins the county. 
+
+```{r, message=FALSE, warning=FALSE, results="hide"}
+NBModel <- train(train[,-1], train$winner, 
+                 method = "nb",
+                 trControl= trainControl(method = "cv", number = 5))
+```
+
+Below is the confusion matrix using test data to evaluate Naive Bayes method in predicting the winner of the county elections.
+The model seems to have a lesser accuracy 75% than that from Decision Trees. For instance, the model predicted that Donald Trump was the winning candidate in 89 counties but Ted Cruz truned out to be the actual winner. In 20 counties, the Naive Bayes model misclassified target variable predicting that Marco Rubio would win when Donald Trump won those counties. 
+Further analysis on the sensitivity shows that the true positive rate has decreased for Trump by about 1% in absolute terms and has increased for Marco Rubio to 67%. Although the true positive rate has gone up for Marco Rubio it is important to note that the model misclassified Rubio in 31 counties when he only won 6 counties in total.
+
+```{r, message=FALSE, warning=FALSE}
+NBPredictions <-predict(NBModel, test)
+confusionMatrix(NBPredictions, test$winner)
+```
+
+
+#### 3.3 Support Vector Machines (SVM)
+
+Support Vector Machine (SVM) classification plots each data point in a coordinate plane with each feautre being the value of a particular coordinate. Then the model performs classification by finding the hyperplane between two classes. 
+
+When we perform SVM model to predict the county winner, the model does not make any predictions for Marco Rubio, partly because there are so few data points for Rubio.
+In terms of accuracy, the SVM model displays 82% accuracy which is significantly improved from Naive Bayes model. However, the model incorrectly classifies Donald Trump as the winner in 13 instance when indeed John Kasich won those 13 counties. The true positive rate of SVM model has improved for Trump correctly classifiying Trump as the winner in 97% of instances he actually won.
+
+```{r}
+set.seed(60)
+SVMMmodel <- train(winner ~., train,
+                 method='svmPoly',
+                 trControl=trainControl(method = "cv", number = 5))
+SVMPredictions <-predict(SVMMmodel, test)
+confusionMatrix(SVMPredictions, test$winner)
+```
+
+
+#### 3.4 Neural Networks
+
+Neural networks mimic the structure and learning process of neurons in the brains. They group feature vectors into classes, takes new input data and find out which label fits best.
+
+```{r, message=FALSE, warning=FALSE, results="hide", eval=FALSE}
+NNModel <- train(train[,-1], train$winner,
+                 method = "nnet",
+                 trControl= trainControl(method = "cv", number = 5))
+```
+
+When we evaluate the NN model with test data, the model does not make any recommendations for either Marco Rubio or Ted Cruz. The model contains a relatively low accuracy at about 74% compared to other models.
+
+```{r, warning=FALSE}
+NNPredictions <-predict(NNModel, test, na.action = na.pass)
+confusionMatrix(NNPredictions, test$winner)
+```
+
+***
+### 4. Conclusion
+
+This study attempts to predict the results of 2016 Republican primary elections in each county based on four classificiation methods. Based on the accuracy of all four models, we can conclude that Decision Trees model produced the highest accuracy of 82% while neural networks produced the lowest accuracy of 74%. The decision tree model correctly classified the runner up in Republican primaries, Ted Cruz in 60% of the counties that he won, the highest sensitivity produced among all models. In an ideal classification problem, the training and testing dataset would contain an equal number of size in each class. It is important to highlight that the training tends to pull the classifier towards the dominant class Donald Trump in making predictions.
+
+These model performances for all four candidates could have been improved by choosing a higher value for k in k-cross fold validation. Recall that all models in above methods use 5-fold cross validation to estimate the accuracy of the model. We could also even out the number of records for each candidate, however this would create a small dataset to perform classification models on.
+
+***
+### 5. Future Recommendations
+
+Additionally, we hope to use ensemble methods such as boosting, bagging and stacking to improve the accuracy of the models explored above. It may also be useful to perform k means and Kohonen clusering methods on county demographics to determine a holisitic view of voting trends. This would provide a good context to understand which voting groups tend to lean towards Marco Rubio versus Ted Cruz and how are voting demographcs different between Trump and Ted Cruz. 
+
+***
+### 6. References
+
+1: Hammer, Ben. "2016 US Election." Kaggle. N.p., n.d. Web.
+https://www.kaggle.com/benhamner/2016-us-election
+
+2: Papiu, Alexandru. "Predictions in the Republican Primary." N.p., n.d. Web.
+
+https://www.kaggle.com/apapiu/d/benhamner/2016-us-election/predictions-in-the-republican-primary
+
+
