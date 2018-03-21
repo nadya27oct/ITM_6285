@@ -1,6 +1,5 @@
 ---
 title: "Predicting the Results of Republican Primaries"
-author: "Imali Nadya Wanigasundara"
 output: html_notebook
 ---
 
