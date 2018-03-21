@@ -1,9 +1,5 @@
 ---
 title: "Product Clusters Based on Nutritional Content"
-author: "Imali Nadya Wanigasundara"
-output:
-  html_notebook: default
-  pdf_document: default
 ---
 
 This document uses various clustering methods to categorize food clusters based on nutritional content. 
